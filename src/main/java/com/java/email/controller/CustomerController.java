@@ -1,75 +1,59 @@
 package com.java.email.controller;
 
-import com.java.email.common.Result;
-import com.java.email.entity.Customer;
+import com.java.email.model.dto.FilterCustomerDto;
+import com.java.email.model.dto.SearchAllCustomerDto;
+import com.java.email.model.response.FilterCustomerResponse;
+import com.java.email.model.response.SearchAllCustomerResponse;
 import com.java.email.service.CustomerService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.Page;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.io.IOException;
 
 @RestController
 @RequestMapping("/customers")
 public class CustomerController {
+
     @Autowired
     private CustomerService customerService;
 
     /**
-     * 根据条件筛选客户
-     *
-     * @param belongUserId  所属用户ID
-     * @param customerLevel 客户等级
-     * @param customerName  客户名称
-     * @param status        分配状态
-     * @param tradeType     贸易类型
-     * @param pageNumber          页码
-     * @param size          每页大小
-     * @return 符合条件的客户分页结果
+     * 过滤查找客户
+     * @param currentUserId 当前用户ID
+     * @param currentUserRole 当前用户角色
+     * @param filterCustomersDto 过滤条件
+     * @return 过滤后的客户列表
+     * @throws IOException 如果与 Elasticsearch 交互时出现问题
      */
-    @GetMapping("/search")
-    public Result<Page<Customer>> findCustomersByCriteria(
-            @RequestParam(required = false) String belongUserId,
-            @RequestParam(required = false) Integer customerLevel,
-            @RequestParam(required = false) String customerName,
-            @RequestParam(required = false) Integer status,
-            @RequestParam(required = false) Integer tradeType,
-            @RequestParam(defaultValue = "0") int pageNumber,
-            @RequestParam(defaultValue = "10") int size,
-            @RequestHeader("currentUserId") String currentUserId, // 从请求头中获取当前用户ID
-            @RequestHeader("currentUserRole") int currentUserRole) { // 从请求头中获取当前用户角色
+    @GetMapping("/filter")
+    public ResponseEntity<FilterCustomerResponse> filterFindCustomer(
+            @RequestHeader String currentUserId,
+            @RequestHeader int currentUserRole,
+            @RequestBody FilterCustomerDto filterCustomersDto) throws IOException {
 
-        // 调用服务层方法，传递当前用户ID和角色
-        return customerService.findCustomersByCriteria(
-                belongUserId, customerLevel, customerName, status, tradeType,
-                pageNumber-1, size, currentUserId, currentUserRole);
+        // 调用服务层方法
+        FilterCustomerResponse response = customerService.FilterFindCustomers(currentUserId, currentUserRole, filterCustomersDto);
+
+        // 返回成功响应
+        return new ResponseEntity<>(response, HttpStatus.OK);
     }
 
-    /**
-     * 根据条件筛选客户并存入redis中，返回redisKey
-     *
-     * @param belongUserId  所属用户ID
-     * @param customerLevel 客户等级
-     * @param customerName  客户名称
-     * @param status        分配状态
-     * @param tradeType     贸易类型
-     * @param pageNumber          页码
-     * @param size          每页大小
-     * @return 符合条件的客户分页结果
-     */
-    @GetMapping("/search-all")
-    public Result<String> findCustomersByCriteriaRedis(
-            @RequestParam(required = false) String belongUserId,
-            @RequestParam(required = false) Integer customerLevel,
-            @RequestParam(required = false) String customerName,
-            @RequestParam(required = false) Integer status,
-            @RequestParam(required = false) Integer tradeType,
-            @RequestParam(defaultValue = "0") int pageNumber,
-            @RequestParam(defaultValue = "10") int size,
-            @RequestHeader("currentUserId") String currentUserId, // 从请求头中获取当前用户ID
-            @RequestHeader("currentUserRole") int currentUserRole) { // 从请求头中获取当前用户角色
+    @GetMapping("/filterAll")
+    public ResponseEntity<SearchAllCustomerResponse> filterFindAllCustomer(
+            @RequestHeader String currentUserId,
+            @RequestHeader int currentUserRole,
+            @RequestBody SearchAllCustomerDto searchAllCustomerDto) {
 
-        // 调用服务层方法，传递当前用户ID和角色
-        return customerService.findCustomersByCriteriaRedis(
-                belongUserId, customerLevel, customerName, status, tradeType,
-                pageNumber-1, size, currentUserId, currentUserRole);
+        try {
+            // 调用服务层方法获取客户数据
+            SearchAllCustomerResponse response = customerService.findFindAllCustomer(currentUserId, currentUserRole, searchAllCustomerDto);
+            return ResponseEntity.ok(response);
+        } catch (IOException e) {
+            // 如果发生异常，返回500错误
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new SearchAllCustomerResponse(0, "Error fetching customer data"));
+        }
     }
 }
